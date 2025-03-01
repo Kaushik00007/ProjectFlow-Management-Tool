@@ -4,9 +4,9 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 
-const Sidebar = () => {
+const Sidebar = ({ darkMode }) => {
   return (
-    <div style={{ width: '250px', backgroundColor: '#f5f5f5', height: '100vh' }}>
+    <div style={{ width: '250px', backgroundColor: darkMode ? '#121212' : '#f5f5f5', height: '100vh' }}>
       <List>
         <ListItem button component={Link} to="/dashboard">
           <ListItemText primary="Dashboard" />

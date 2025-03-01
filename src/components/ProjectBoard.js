@@ -1,55 +1,112 @@
-import React from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import React, { useState } from 'react';
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import TaskCard from './TaskCard';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+
+const Column = ({ id, title, tasks, setTasks }) => {
+  return (
+    <div style={{ flex: 1, padding: 10, border: '1px solid #ccc', minHeight: 200 }}>
+      <h2>{title}</h2>
+      <SortableContext items={tasks.map(task => task.id)}>
+        {tasks.map((task, index) => (
+          <DraggableTask key={task.id} task={task} index={index} setTasks={setTasks} />
+        ))}
+      </SortableContext>
+    </div>
+  );
+};
+
+const DraggableTask = ({ task, index, setTasks }) => {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        padding: 10,
+        margin: '5px 0',
+        border: '1px solid gray',
+        backgroundColor: 'white',
+        cursor: 'grab',
+      }}
+    >
+      <TaskCard task={task} />
+    </div>
+  );
+};
 
 const ProjectBoard = ({ tasks, setTasks }) => {
-  const onDragEnd = (result) => {
-    const { source, destination } = result;
+  const [columns, setColumns] = useState([
+    { id: 'todo', title: 'To Do' },
+    { id: 'in-progress', title: 'In Progress' },
+    { id: 'done', title: 'Done' },
+  ]);
+  const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
+  const [newColumnName, setNewColumnName] = useState('');
 
-    // If dropped outside the list
-    if (!destination) return;
+  const onDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over) return;
 
-    const newTasks = Array.from(tasks);
-    const [removed] = newTasks.splice(source.index, 1);
-    newTasks.splice(destination.index, 0, removed);
+    setTasks((prevTasks) => {
+      const oldIndex = prevTasks.findIndex(task => task.id === active.id);
+      const newIndex = prevTasks.findIndex(task => task.id === over.id);
+      return arrayMove(prevTasks, oldIndex, newIndex);
+    });
+  };
 
-    setTasks(newTasks);
+  const addColumn = () => {
+    if (!newColumnName.trim()) return;
+    setColumns([...columns, { id: newColumnName.toLowerCase().replace(/\s+/g, '-'), title: newColumnName }]);
+    setNewColumnName('');
+    setIsAddColumnModalOpen(false);
   };
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div style={{ display: 'flex', gap: '20px' }}>
-        {['To Do', 'In Progress', 'Done'].map((status, index) => (
-          <Droppable key={status} droppableId={status}>
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                style={{ flex: 1 }}
-              >
-                <h2>{status}</h2>
-                {tasks
-                  .filter(task => task.status === status)
-                  .map((task, index) => (
-                    <Draggable key={task.id} draggableId={task.id.toString()} index={index}>
-                      {(provided) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                        >
-                          <TaskCard task={task} />
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        ))}
-      </div>
-    </DragDropContext>
+    <div>
+      <Button onClick={() => setIsAddColumnModalOpen(true)}>Add Column</Button>
+
+      <Dialog open={isAddColumnModalOpen} onClose={() => setIsAddColumnModalOpen(false)}>
+        <DialogTitle>Add New Column</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Column Name"
+            fullWidth
+            value={newColumnName}
+            onChange={(e) => setNewColumnName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsAddColumnModalOpen(false)}>Cancel</Button>
+          <Button onClick={addColumn}>Add</Button>
+        </DialogActions>
+      </Dialog>
+
+      <DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <div style={{ display: 'flex', gap: '20px' }}>
+          {columns.map((column) => (
+            <Column
+              key={column.id}
+              id={column.id}
+              title={column.title}
+              tasks={tasks.filter(task => task.status === column.id)}
+              setTasks={setTasks}
+            />
+          ))}
+        </div>
+      </DndContext>
+    </div>
   );
 };
 
